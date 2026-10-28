@@ -183,7 +183,7 @@ var SHEETS_URL = "https://sheets.googleapis.com/v4/spreadsheets/" + SHEET_ID + "
 // Apps Script — escritura (guardar préstamos, devoluciones)
 // Deploy: Execute as Me + Anyone (anónimo)
 // esta tenia var GAS_URL = "https://script.google.com/macros/s/AKfycbyI0TK7uY6kbvbV7C8dFNnLjMDQuW7el-zfKqUzlYb2d38Vi2TeDZmdfxwUFERAHrjV/exec";
-var GAS_URL = "https://script.google.com/macros/s/AKfycbyI0TK7uY6kbvbV7C8dFNnLjMDQuW7el-zfKqUzlYb2d38Vi2TeDZmdfxwUFERAHrjV/exec";
+var GAS_URL = "https://script.google.com/macros/s/AKfycbzvPnJED2B0gUeCvYHPu8Zepak1d1VzisMTQiB_AhaypBSfcwOJ3ImjnFx9yLvr_HVD/exec";
 
 
 // ── Estado global ──
