@@ -59,7 +59,7 @@
 // Ver el historial completo de versiones en el comentario de
 // encabezado de Code.gs (para no repetirlo dos veces).
 // ═══════════════════════════════════════════════════════════
-var APP_VERSION = "3.3.0-GT02";
+var APP_VERSION = "3.3.0-GT03";
 
 // ══════════════════════════════════════════════
 //  CONFIG DE PROYECTO — datos propios de ESTE proyecto (GT02),
@@ -77,7 +77,7 @@ var APP_VERSION = "3.3.0-GT02";
 // ══════════════════════════════════════════════
 var CONFIG = {
   codigoProyecto:      "GT02",
-  nombreProyecto:      "Almacén GT02",
+  nombreProyecto:      "Almacén GT03",
   ubicacion:           "Izabal",
   empresa:             "SOLTECING",
   paisLegal:           "Guatemala",
@@ -174,7 +174,7 @@ function aplicarModulos(lista){
 //  es ÚNICAMENTE aquí donde hay que actualizarlo.
 // ══════════════════════════════════════════════
 // Google Sheets API — lectura pública sin login
-var SHEET_ID  = "1TY1w4xxibIOXGbax8-D2MM6B0CKT0Ex0N7wdwIG2I0w";
+var SHEET_ID  = "13rHC-MT2CJwLyRBN5AqCzDDrGoNkZXT9GXyTmVWITCY";
 
 var API_KEY   = "AIzaSyAM5ZDWXhcE_lmdwl6DY0xbnrbvQRjtzWE";
 
