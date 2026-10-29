@@ -76,12 +76,12 @@ var APP_VERSION = "3.3.0-GT03";
 //  Maquinas). Las demás hojas no llevan el código en el nombre.
 // ══════════════════════════════════════════════
 var CONFIG = {
-  codigoProyecto:      "GT02",
+  codigoProyecto:      "GT03",
   nombreProyecto:      "Almacén GT03",
   ubicacion:           "Izabal",
   empresa:             "SOLTECING",
   paisLegal:           "Guatemala",
-  prefijoTrabajador:   "GT02/RECPER",
+  prefijoTrabajador:   "GT03/RECPER",
   prefijoMaquina:      "MAQ",
   colorPaletaDefecto:  "Verde",
   // Logo pequeño para la esquina del carnet (opcional). Pegá acá el
@@ -102,7 +102,7 @@ function SHEET(nombreBase){ return nombreBase + "_" + CONFIG.codigoProyecto; }
 //  Mientras no se active el modo varios proyectos en el servidor, todo sigue
 //  funcionando como siempre con un solo proyecto.
 // ══════════════════════════════════════════════
-var PROYECTO_PREDETERMINADO = "GT02"; // proyecto al que entra la gente con el enlace de siempre (sin ?p=)
+var PROYECTO_PREDETERMINADO = "GT03"; // proyecto al que entra la gente con el enlace de siempre (sin ?p=)
 var PROYECTO_URL = "";                // el ?p= del enlace (vacío si no trae)
 try{ PROYECTO_URL=(new URLSearchParams(location.search).get("p")||"").trim(); }catch(e){}
 var PROYECTO_ACTUAL = null;           // datos del proyecto en uso (después de iniciar sesión)
@@ -259,7 +259,7 @@ function cargarConfigRemota(){
 function iniciarApp(){
   aplicarConfigProyecto();
   var guardada=null;
-  try{ guardada=JSON.parse(localStorage.getItem("gt02_sesion")||"null"); }catch(e){}
+  try{ guardada=JSON.parse(localStorage.getItem("gt03_sesion")||"null"); }catch(e){}
   // v3.1.0: una sesión guardada sin token (de versiones anteriores) o con
   // el token vencido ya no sirve — se pide iniciar sesión otra vez.
   var vigente=!!(guardada && guardada.nombre && guardada.token && guardada.exp && guardada.exp>Date.now());
@@ -272,7 +272,7 @@ function iniciarApp(){
     mostrarApp();
     return;
   }
-  if(guardada) localStorage.removeItem("gt02_sesion");
+  if(guardada) localStorage.removeItem("gt03_sesion");
   cargarInfoProyectoLogin();
 }
 
@@ -305,7 +305,7 @@ function intentarLogin(){
     if(r && r.ok){
       SESION={usuario:r.usuario,nombre:r.nombre,rol:r.rol||"Operador",token:r.token,exp:r.exp,global:!!r.global,proyecto:r.proyecto||null,proyectos:r.proyectos||null};
       if(r.proyecto) fijarProyecto(r.proyecto);
-      localStorage.setItem("gt02_sesion",JSON.stringify(SESION));
+      localStorage.setItem("gt03_sesion",JSON.stringify(SESION));
       // Usuario global con varios proyectos que entró por el enlace de siempre (sin ?p=): elige a cuál entrar.
       if(SESION.global && SESION.proyectos && SESION.proyectos.length>1 && !PROYECTO_URL && typeof mostrarSelectorProyecto==="function"){
         mostrarSelectorProyecto(true);
@@ -376,6 +376,6 @@ function mostrarApp(){
 }
 
 function cerrarSesion(){
-  localStorage.removeItem("gt02_sesion");
+  localStorage.removeItem("gt03_sesion");
   location.reload();
 }

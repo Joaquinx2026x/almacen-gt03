@@ -50,7 +50,7 @@ function elegirProyecto(codigo,inicial){
   }
   gasPost("seleccionarProyecto",{codigo:codigo}).then(function(r){
     SESION.token=r.token; SESION.exp=r.exp; SESION.rol=r.rol; SESION.proyecto=r.proyecto; SESION.proyectos=r.proyectos||SESION.proyectos; SESION.global=true;
-    localStorage.setItem("gt02_sesion",JSON.stringify(SESION));
+    localStorage.setItem("gt03_sesion",JSON.stringify(SESION));
     // Se deja el enlace apuntando al proyecto elegido y se recarga limpio (sin datos del proyecto anterior en memoria).
     try{ history.replaceState(null,"",location.pathname+"?p="+encodeURIComponent(r.proyecto.codigo)); }catch(e){}
     location.reload();

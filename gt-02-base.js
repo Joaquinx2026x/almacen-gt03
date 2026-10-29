@@ -158,7 +158,7 @@ function esUsuarioSoloLectura(){
 function sesionExpirada(mensaje){
   if(SESION_EXPIRADA_AVISADA) return;
   SESION_EXPIRADA_AVISADA=true;
-  try{ localStorage.removeItem("gt02_sesion"); }catch(e){}
+  try{ localStorage.removeItem("gt03_sesion"); }catch(e){}
   alert((mensaje||"Tu sesión venció.")+"\n\nVuelve a iniciar sesión.");
   location.reload();
 }
