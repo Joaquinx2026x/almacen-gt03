@@ -6,7 +6,7 @@
 //  Depende de: gt-01/gt-02 (gasPost, navLimpiarTodo, goTab, beep, SESION)
 //  y de la librería ZXing que ya carga index.html.
 // ══════════════════════════════════════════════════════════════
-var ASIS = { dia: null, fecha: null, tab: 0, lector: null, cola: [], procesando: false, ultimo: { codigo: "", ts: 0 }, feed: [], modo: "auto", filtro: "", permCodigo: "", construido: false, timerRefresco: null };
+var ASIS = { dia: null, fecha: null, tab: 0, lector: null, cola: [], procesando: false, ultimo: { codigo: "", ts: 0 }, feed: [], modo: "auto", filtro: "", permCodigo: "", construido: false, timerRefresco: null, modoElegido: false, timerBanner: null };
 
 if (typeof NAV_PANTALLAS_MODULO !== "undefined" && NAV_PANTALLAS_MODULO.indexOf("asistenciaScreen") < 0) NAV_PANTALLAS_MODULO.push("asistenciaScreen");
 // Si otro módulo cierra la cámara (stopQR), también se cierra la de asistencia.
@@ -38,8 +38,51 @@ function asisToast(msg, tipo) {
 function asisBloq(id, txt) { var b = asisEl(id); return (typeof _bloquearBoton === "function") ? { btn: b, ok: _bloquearBoton(b, id, txt) } : { btn: b, ok: true }; }
 function asisLibera(o, id) { if (typeof _liberarBoton === "function") _liberarBoton(o.btn, id); }
 
+// ── sonido, vibración y aviso grande ──
+// Los celulares solo dejan sonar el audio si se "despierta" con un toque del usuario. Por eso el audio
+// se activa al abrir el módulo / abrir la cámara / tocar ✅, y se reutiliza el mismo para todos los pitidos.
+var ASIS_AUDIO = null;
+function asisDesbloquearAudio() {
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    if (!ASIS_AUDIO) ASIS_AUDIO = new AC();
+    if (ASIS_AUDIO.state === "suspended" && ASIS_AUDIO.resume) ASIS_AUDIO.resume();
+    var o = ASIS_AUDIO.createOscillator(), g = ASIS_AUDIO.createGain(); g.gain.value = 0; o.connect(g); g.connect(ASIS_AUDIO.destination); o.start(); o.stop(ASIS_AUDIO.currentTime + 0.01);
+  } catch (e) {}
+}
+function asisTonos(lista) {
+  try {
+    if (!ASIS_AUDIO) asisDesbloquearAudio();
+    if (!ASIS_AUDIO) return;
+    if (ASIS_AUDIO.state === "suspended" && ASIS_AUDIO.resume) ASIS_AUDIO.resume();
+    var t0 = ASIS_AUDIO.currentTime;
+    lista.forEach(function (n) {
+      var o = ASIS_AUDIO.createOscillator(), g = ASIS_AUDIO.createGain();
+      o.type = n[3] || "sine"; o.frequency.value = n[0];
+      g.gain.setValueAtTime(0.0001, t0 + n[1]); g.gain.exponentialRampToValueAtTime(0.4, t0 + n[1] + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + n[2]);
+      o.connect(g); g.connect(ASIS_AUDIO.destination); o.start(t0 + n[1]); o.stop(t0 + n[1] + n[2] + 0.03);
+    });
+  } catch (e) {}
+}
+// 1 pitido agudo = entrada · 2 pitidos = salida · agudo+grave = entrada tarde · 2 graves = ya marcó (no se repitió) · zumbido largo = error
+function asisSonar(tipo) {
+  var T = { entrada: [[1100, 0, 0.16]], tarde: [[1100, 0, 0.14], [750, 0.2, 0.22]], salida: [[800, 0, 0.13], [800, 0.2, 0.13]], aviso: [[420, 0, 0.2, "triangle"], [420, 0.3, 0.2, "triangle"]], error: [[170, 0, 0.6, "sawtooth"]] };
+  var V = { entrada: [90], tarde: [90, 60, 160], salida: [90, 60, 90], aviso: [200, 80, 200], error: [500] };
+  asisTonos(T[tipo] || T.entrada);
+  try { if (navigator.vibrate) navigator.vibrate(V[tipo] || [90]); } catch (e) {}
+}
+function asisBanner(color, linea1, linea2) {
+  var b = asisEl("asisBanner"); if (!b) return;
+  var fondo = { ok: "#2E7D32", warn: "#E69500", info: "#1565C0", err: "#C62828" }[color] || "#2E7D32";
+  b.style.background = fondo;
+  b.innerHTML = "<div style=\"font-size:19px;font-weight:bold\">" + asisH(linea1) + "</div><div style=\"font-size:15px;margin-top:3px\">" + asisH(linea2 || "") + "</div>";
+  b.style.display = "block";
+  clearTimeout(ASIS.timerBanner); ASIS.timerBanner = setTimeout(function () { b.style.display = "none"; }, color === "err" ? 4500 : 2500);
+}
+
 // ── abrir / cerrar ──
 function abrirAsistencia() {
+  asisDesbloquearAudio();
   navLimpiarTodo();
   var mm = asisEl("menuMas"); if (mm) mm.style.display = "none";
   var tabs = document.querySelector(".tabs"); if (tabs) tabs.style.display = "none";
@@ -64,7 +107,7 @@ function asisConstruir() {
   if (viejo && ASIS.construido && ASIS.construidoPara === quien) return;   // misma persona y mismo rol: se reutiliza
   // otra persona o rol distinto (o primera vez): se reconstruye y se limpia lo anterior
   asisDetenerCamara();
-  ASIS.dia = null; ASIS.fecha = null; ASIS.feed = []; ASIS.cola = []; ASIS.procesando = false; ASIS.permCodigo = ""; ASIS.rep = null; ASIS.filtro = ""; ASIS.modo = "auto";
+  ASIS.dia = null; ASIS.fecha = null; ASIS.feed = []; ASIS.cola = []; ASIS.procesando = false; ASIS.permCodigo = ""; ASIS.rep = null; ASIS.filtro = ""; ASIS.modo = "auto"; ASIS.modoElegido = false;
   if (viejo) viejo.parentNode.removeChild(viejo);
   var g = asisEsGestion(), a = asisEsAdmin();
   var estilo = "<style>"
@@ -82,6 +125,7 @@ function asisConstruir() {
     + "#asisModal .asis-caja{background:#fff;border-radius:10px;padding:14px;max-width:420px;width:100%;max-height:90vh;overflow:auto}"
     + "</style>";
   var html = estilo
+    + "<div id=\"asisBanner\" style=\"display:none;position:fixed;top:0;left:0;right:0;z-index:1001;color:#fff;padding:14px 12px;text-align:center;box-shadow:0 3px 10px rgba(0,0,0,.35)\"></div>"
     + "<div id=\"asisToast\" style=\"display:none;position:fixed;left:12px;right:12px;bottom:14px;z-index:1000;color:#fff;padding:10px 12px;border-radius:8px;font-size:13px;font-weight:bold;text-align:center\"></div>"
     + "<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:10px\"><div class=\"ctit\" style=\"margin:0\">🕐 Asistencia</div>"
     + "<button class=\"btn b-sec\" style=\"padding:6px 12px;font-size:12px;width:auto\" onclick=\"cerrarAsistencia()\">← Volver</button></div>"
@@ -98,7 +142,8 @@ function asisConstruir() {
     + "<button class=\"btn b-ok b-sm\" id=\"asisM_auto\" style=\"flex:1\" onclick=\"asisSetModo('auto')\">⚡ Automático</button>"
     + "<button class=\"btn b-sec b-sm\" id=\"asisM_entrada\" style=\"flex:1\" onclick=\"asisSetModo('entrada')\">🟢 Entrada</button>"
     + "<button class=\"btn b-sec b-sm\" id=\"asisM_salida\" style=\"flex:1\" onclick=\"asisSetModo('salida')\">🔴 Salida</button></div>"
-    + "<div class=\"asis-sub\">Automático: la primera lectura del día es la entrada y la siguiente es la salida.</div></div>"
+    + "<div id=\"asisModoTxt\" style=\"margin-top:7px;font-size:13px;font-weight:bold;color:#1B4332\"></div>"
+    + "<div class=\"asis-sub\">Entrada: si ya tiene entrada, AVISA y no la repite. Salida: registra la salida. Automático: la 1.ª lectura es entrada; la 2.ª cuenta como salida solo si pasaron " + "varios minutos (ver Ajustes); antes solo avisa.</div></div>"
     + "<div class=\"card\"><div class=\"ctit\">Escanear QR del carnet (varias personas seguidas)</div>"
     + "<button class=\"btn b-blue\" id=\"asisBtnCam\" onclick=\"asisToggleCamara()\">📷 Abrir cámara</button>"
     + "<div class=\"qr-wrap\" id=\"asisQW\"><video id=\"asisQV\" autoplay playsinline muted></video><div class=\"qr-guide\"><span></span></div><div class=\"qr-lbl\">La cámara sigue abierta: pasa un carnet tras otro</div><div class=\"qr-flash\" id=\"asisQF\"></div></div>"
@@ -154,6 +199,7 @@ function asisConstruir() {
       + "<div class=\"asis-lbl\">La hora extra empieza a contar desde (hora de salida real)</div><input type=\"time\" id=\"asisC_asisExtraDesde\">"
       + "<div class=\"asis-lbl\">Bloque de hora extra (minutos)</div><input type=\"number\" min=\"1\" max=\"600\" id=\"asisC_asisExtraBloque\">"
       + "<div class=\"asis-lbl\">Salida anticipada: antes de</div><input type=\"time\" id=\"asisC_asisSalidaAnticipada\">"
+      + "<div class=\"asis-lbl\">Modo automático: minutos mínimos entre la entrada y la salida (antes de eso, una 2.ª lectura solo avisa)</div><input type=\"number\" min=\"1\" max=\"600\" id=\"asisC_asisMinSalida\">"
       + "<div class=\"asis-sub\" style=\"margin-bottom:8px\">Tarde: llegada posterior a la hora de entrada + tolerancia (los minutos se cuentan desde la hora oficial). Extra: solo si la salida llega a la hora indicada; se cuenta desde la hora oficial de salida en bloques completos y vale para pago cuando el Admin la autoriza.</div>"
       + "<button class=\"btn b-ok\" id=\"asisBtnCfg\" onclick=\"asisGuardarCfg()\">💾 Guardar parámetros</button></div></div>" : "")
 
@@ -184,6 +230,7 @@ function asisCargarDia(fecha) {
   var payload = {}; if (fecha) payload.fecha = fecha;
   return gasPost("asistenciaDia", payload).then(function (r) {
     ASIS.dia = r; ASIS.fecha = r.fecha;
+    if (!ASIS.modoElegido) asisSetModo((r.horaServidor || "00:00") < "13:00" ? "entrada" : "salida", true);   // antes de la 1 p. m. = entrada; después = salida
     var f = asisEl("asisFecha"); if (f) f.value = r.fecha;
     asisRenderMini(); asisRenderHoy(); asisRenderPermisos(); asisLlenarCfg();
     return r;
@@ -201,11 +248,15 @@ function asisRenderMini() {
 }
 
 // ── marcar ──
-function asisSetModo(m) {
-  ASIS.modo = m;
+function asisSetModo(m, porHora) {
+  asisDesbloquearAudio();
+  ASIS.modo = m; if (!porHora) ASIS.modoElegido = true;
   ["auto", "entrada", "salida"].forEach(function (k) { var b = asisEl("asisM_" + k); if (b) b.className = "btn " + (k === m ? "b-ok" : "b-sec") + " b-sm"; });
+  var t = asisEl("asisModoTxt");
+  if (t) t.textContent = "Modo actual: " + ({ auto: "⚡ AUTOMÁTICO", entrada: "🟢 ENTRADA", salida: "🔴 SALIDA" })[m] + (porHora ? " (elegido según la hora; puedes cambiarlo)" : "");
 }
 function asisMarcarManual() {
+  asisDesbloquearAudio();
   var inp = asisEl("asisCodigo"); var v = asisTxt(inp.value);
   if (!v) { asisToast("Escribe un código, DUI/DPI o número.", "warn"); return; }
   inp.value = ""; asisEncolar(v, "manual"); inp.focus();
@@ -226,23 +277,32 @@ function asisProcesarCola() {
 }
 function asisFeed(r, it) {
   var cls = "", txt = "", hora = new Date().toTimeString().slice(0, 5);
-  if (!r.ok) { cls = "err"; txt = "❌ <b>" + asisH(r.error || "Error") + "</b>"; }
-  else if (r.duplicado) { cls = "info"; txt = "ℹ️ <b>" + asisH(r.nombre) + "</b><br>" + asisH(r.aviso); }
-  else if (r.accion === "entrada") {
-    cls = (r.estado === "Tarde" || (r.alertas && r.alertas.length)) ? "warn" : "";
+  if (!r.ok) {
+    cls = "err"; txt = "❌ <b>" + asisH(r.error || "Error") + "</b>";
+    asisSonar("error"); asisBanner("err", "NO SE REGISTRÓ", r.error || "Error");
+  } else if (r.duplicado) {
+    cls = "info"; txt = "ℹ️ <b>" + asisH(r.nombre) + "</b><br>" + asisH(r.aviso);
+    asisSonar("aviso"); asisBanner("info", "YA MARCÓ · no se registró otra vez", r.nombre + " — " + (r.aviso || ""));
+  } else if (r.accion === "entrada") {
+    var tarde = r.estado === "Tarde";
+    cls = (tarde || (r.alertas && r.alertas.length)) ? "warn" : "";
     txt = "🟢 <b>" + asisH(r.nombre) + "</b> · Entrada " + asisH(r.horaCaptura) + (r.horaInicio !== r.horaCaptura ? " (inicio " + asisH(r.horaInicio) + ")" : "")
       + "<br>" + asisH(r.estado) + (r.minutosTarde ? " · " + r.minutosTarde + " min tarde" : "");
+    asisSonar(tarde ? "tarde" : "entrada");
+    asisBanner(tarde ? "warn" : "ok", tarde ? "ENTRADA REGISTRADA · TARDE " + r.minutosTarde + " min" : "✔ ENTRADA REGISTRADA", r.nombre + " · " + r.horaCaptura);
   } else {
+    var anticipada = !!(r.alertas && r.alertas.indexOf("Salida anticipada") >= 0);
     cls = (r.alertas && r.alertas.length) ? "warn" : "";
     txt = "🔴 <b>" + asisH(r.nombre) + "</b> · Salida " + asisH(r.horaFin) + (r.minutosExtra ? "<br>Extra calculado: " + r.minutosExtra + " min" : "");
+    asisSonar("salida");
+    asisBanner(anticipada ? "warn" : "ok", anticipada ? "SALIDA REGISTRADA · ANTICIPADA" : "✔ SALIDA REGISTRADA", r.nombre + " · " + r.horaFin);
   }
-  if (r.alertas && r.alertas.length) txt += "<br><span style=\"color:#9C5700\">⚠ " + r.alertas.map(asisH).join(" · ") + "</span>";
-  if (r.aviso && !r.duplicado) txt += "<br><span style=\"color:#9C5700\">⚠ " + asisH(r.aviso) + "</span>";
+  if (r.ok && !r.duplicado && r.alertas && r.alertas.length) txt += "<br><span style=\"color:#9C5700\">⚠ " + r.alertas.map(asisH).join(" · ") + "</span>";
+  if (r.ok && !r.duplicado && r.aviso) txt += "<br><span style=\"color:#9C5700\">⚠ " + asisH(r.aviso) + "</span>";
   ASIS.feed.unshift({ cls: cls, html: txt, hora: hora });
   if (ASIS.feed.length > 12) ASIS.feed.pop();
   var e = asisEl("asisFeed"); if (!e) return;
   e.innerHTML = ASIS.feed.map(function (f) { return "<div class=\"asis-feed " + f.cls + "\"><span style=\"float:right;color:#888\">" + f.hora + "</span>" + f.html + "</div>"; }).join("");
-  if (r.ok && !r.duplicado) { try { beep(); } catch (x) {} } else if (!r.ok) { asisToast(r.error || "Error", "err"); }
 }
 function asisRefrescoDiferido() {
   clearTimeout(ASIS.timerRefresco);
@@ -251,6 +311,7 @@ function asisRefrescoDiferido() {
 
 // ── cámara continua ──
 function asisToggleCamara() {
+  asisDesbloquearAudio();
   if (ASIS.lector) { asisDetenerCamara(); return; }
   if (typeof ZXing === "undefined") { asisToast("La cámara no está disponible (falta cargar la librería de QR).", "err"); return; }
   var wrap = asisEl("asisQW"), vid = asisEl("asisQV"), btn = asisEl("asisBtnCam");
@@ -428,7 +489,7 @@ function asisGenerarReporte() {
 }
 
 // ── parámetros ──
-var ASIS_CFG_CLAVES = ["asisHoraEntrada", "asisTolEntrada", "asisHoraCorte", "asisHoraSalida", "asisExtraDesde", "asisExtraBloque", "asisSalidaAnticipada"];
+var ASIS_CFG_CLAVES = ["asisHoraEntrada", "asisTolEntrada", "asisHoraCorte", "asisHoraSalida", "asisExtraDesde", "asisExtraBloque", "asisSalidaAnticipada", "asisMinSalida"];
 function asisLlenarCfg() {
   var d = ASIS.dia; if (!d || !asisEsAdmin()) return;
   ASIS_CFG_CLAVES.forEach(function (k) { var e = asisEl("asisC_" + k); if (e && document.activeElement !== e) e.value = d.cfg[k]; });
